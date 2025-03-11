@@ -1,1 +1,97 @@
+-- Bảng Roles
+CREATE TABLE Roles (
+    roleId INT PRIMARY KEY IDENTITY(1,1),
+    roleName NVARCHAR(50) NOT NULL UNIQUE
+);
 
+-- Bảng Address (Tách riêng để dễ quản lý)
+CREATE TABLE Address (
+    addressId INT PRIMARY KEY IDENTITY(1,1),
+    street NVARCHAR(255),
+    ward NVARCHAR(100),
+    district NVARCHAR(100),
+    city NVARCHAR(100) NOT NULL
+);
+
+-- Bảng Users (Sử dụng CCCD làm khóa chính)
+CREATE TABLE Users (
+    cccd VARCHAR(12) PRIMARY KEY,  -- Số CCCD là khóa chính
+    fullName NVARCHAR(100) NOT NULL,
+    birthday DATE NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    phoneNumber VARCHAR(10) NOT NULL UNIQUE,
+    gender CHAR(1),
+    password VARCHAR(255) NOT NULL,
+    roleID INT NOT NULL,
+    addressID INT NOT NULL,
+    FOREIGN KEY (roleID) REFERENCES Roles(roleId),
+    FOREIGN KEY (addressID) REFERENCES Address(addressId) -- Fix lỗi viết hoa/thường
+);
+
+-- Bảng Households (Sử dụng CCCD thay vì UserID)
+CREATE TABLE Households (
+    householdId INT PRIMARY KEY IDENTITY(1,1),
+    headOfHouseholdCccd VARCHAR(12) NOT NULL,
+    addressId INT NOT NULL,
+    createdDate DATE DEFAULT GETDATE(),
+    FOREIGN KEY (headOfHouseholdCccd) REFERENCES Users(cccd),
+    FOREIGN KEY (addressId) REFERENCES Address(addressId)
+);
+
+-- Bảng Registrations
+CREATE TABLE Registrations (
+    registrationId INT PRIMARY KEY IDENTITY(1,1),
+    cccd VARCHAR(12) NOT NULL,
+    registrationType NVARCHAR(20) NOT NULL CHECK (registrationType IN (N'Dài hạn', N'Tạm thời', N'Lưu trú tạm thời')),
+    startDate DATE NOT NULL,
+    endDate DATE NULL,
+    status NVARCHAR(20) DEFAULT N'Đang chờ xử lý' CHECK (status IN (N'Đang chờ xử lý', N'Đã được chấp thuận', N'Bị từ chối')),
+    approvedBy VARCHAR(12) NULL,
+    comments TEXT NULL,
+    FOREIGN KEY (cccd) REFERENCES Users(cccd),
+    FOREIGN KEY (approvedBy) REFERENCES Users(cccd)
+);
+
+-- Bảng HouseholdMembers
+CREATE TABLE HouseholdMembers (
+    memberId INT PRIMARY KEY IDENTITY(1,1),
+    householdId INT NOT NULL,
+    cccd VARCHAR(12) NOT NULL,
+    relationship NVARCHAR(50) NOT NULL,
+    FOREIGN KEY (householdId) REFERENCES Households(householdId),
+    FOREIGN KEY (cccd) REFERENCES Users(cccd)
+);
+
+-- Bảng Notifications
+CREATE TABLE Notifications (
+    notificationID INT PRIMARY KEY IDENTITY(1,1),
+    cccd VARCHAR(12) NOT NULL,
+    message TEXT NOT NULL,
+    sentDate DATETIME DEFAULT GETDATE(),
+    isRead BIT DEFAULT 0,
+    FOREIGN KEY (cccd) REFERENCES Users(cccd)
+);
+
+-- Bảng Logs
+CREATE TABLE Logs (
+    logId INT PRIMARY KEY IDENTITY(1,1),
+    cccd VARCHAR(12) NOT NULL,
+    action NVARCHAR(100) NOT NULL,
+    timestamp DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (cccd) REFERENCES Users(cccd)
+);
+
+CREATE TABLE PendingHousehold (
+    pendingId INT IDENTITY(1,1) PRIMARY KEY,  -- Khóa chính tự tăng
+    registrationId INT NOT NULL,              -- Khóa ngoại tham chiếu đến Registrations
+    headOfHouseholdCccd NVARCHAR(12) NOT NULL, -- Số CCCD chủ hộ
+    addressId INT NOT NULL,                    -- Địa chỉ hộ khẩu
+    relationship NVARCHAR(50) NOT NULL,        -- Quan hệ với chủ hộ
+    cccd NVARCHAR(12) NOT NULL,                -- CCCD của thành viên đăng ký
+    createDate DATETIME DEFAULT GETDATE(),     -- Ngày tạo, mặc định là ngày hiện tại
+
+    -- Khóa ngoại
+    FOREIGN KEY (registrationId) 
+        REFERENCES Registrations(registrationId) ON DELETE CASCADE,
+	 
+);
